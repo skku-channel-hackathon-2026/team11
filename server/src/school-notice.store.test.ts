@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { withDatabase, type AppDatabase } from "./database.js";
-import { listAllNotices, upsertNotice, type NoticeRow } from "./school-notice.store.js";
+import {
+  listAllNotices,
+  upsertNotice,
+  type NoticeRow,
+} from "./school-notice.store.js";
 
 type NoticeTableRow = Omit<NoticeRow, "id" | "created_at"> & {
   id?: number;
@@ -20,7 +24,14 @@ function createNoticeDatabase(): AppDatabase {
             async run() {
               if (sql.startsWith("INSERT INTO notices")) {
                 const [title, content, url, postedAt, department, category] =
-                  values as [string, string, string, string, string, string | null];
+                  values as [
+                    string,
+                    string,
+                    string,
+                    string,
+                    string,
+                    string | null,
+                  ];
                 notices.push({
                   id: nextId,
                   title,
@@ -37,7 +48,14 @@ function createNoticeDatabase(): AppDatabase {
 
               if (sql.startsWith("UPDATE notices SET")) {
                 const [title, content, postedAt, department, category, url] =
-                  values as [string, string, string, string, string | null, string];
+                  values as [
+                    string,
+                    string,
+                    string,
+                    string,
+                    string | null,
+                    string,
+                  ];
                 const row = notices.find((notice) => notice.url === url);
                 if (row) {
                   row.title = title;
@@ -53,9 +71,8 @@ function createNoticeDatabase(): AppDatabase {
             },
             async first<T>() {
               if (sql.includes("FROM notices WHERE url = ?")) {
-                return (
-                  notices.find((notice) => notice.url === values[0]) ?? null
-                ) as T | null;
+                return (notices.find((notice) => notice.url === values[0]) ??
+                  null) as T | null;
               }
 
               throw new Error(`Unexpected first SQL: ${sql}`);

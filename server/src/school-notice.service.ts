@@ -53,7 +53,7 @@ const sampleNotices = [
 @Injectable()
 export class SchoolNoticeService {
   constructor(
-    private readonly recommendations = new NoticeRecommendationService(),
+    private readonly recommendations: NoticeRecommendationService = new NoticeRecommendationService(),
   ) {}
 
   async listNotices(input: NoticeListInput = {}): Promise<NoticeListOutput> {

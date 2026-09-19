@@ -77,7 +77,11 @@ export async function insertMailAccount(
   userId: string,
   account: InsertableMailAccount,
 ): Promise<MailAccount> {
-  const existing = await findMailAccountByEmail(channelId, userId, account.email);
+  const existing = await findMailAccountByEmail(
+    channelId,
+    userId,
+    account.email,
+  );
   if (existing) return existing;
 
   await getDatabase()

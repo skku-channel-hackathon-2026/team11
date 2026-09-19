@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { MailAccount, MailMessage } from "@tutorial/shared";
 import { withDatabase, type AppDatabase } from "./database.js";
-import { insertMailAccount, type MailAccountRow } from "./features/mail/mail.store.js";
+import {
+  insertMailAccount,
+  type MailAccountRow,
+} from "./features/mail/mail.store.js";
 import { MailService } from "./features/mail/mail.service.js";
 import type { MailProviderAdapter } from "./features/mail/mail.provider.js";
 
@@ -12,7 +15,11 @@ function createMailAccountDatabase(): AppDatabase {
   function all(sql: string): MailAccountRow[] {
     if (sql.includes("FROM mail_accounts") && sql.includes("ORDER BY")) {
       return [...rows].sort((a, b) =>
-        a.connected_at < b.connected_at ? -1 : a.connected_at > b.connected_at ? 1 : 0,
+        a.connected_at < b.connected_at
+          ? -1
+          : a.connected_at > b.connected_at
+            ? 1
+            : 0,
       );
     }
     throw new Error(`Unexpected all SQL: ${sql}`);
@@ -24,8 +31,23 @@ function createMailAccountDatabase(): AppDatabase {
           return {
             async run() {
               if (sql.startsWith("INSERT INTO mail_accounts")) {
-                const [id, channelId, userId, provider, email, displayName, connectedAt] =
-                  values as [string, string, string, string, string, string | null, string];
+                const [
+                  id,
+                  channelId,
+                  userId,
+                  provider,
+                  email,
+                  displayName,
+                  connectedAt,
+                ] = values as [
+                  string,
+                  string,
+                  string,
+                  string,
+                  string,
+                  string | null,
+                  string,
+                ];
                 rows.push({
                   id,
                   channel_id: channelId,
@@ -41,7 +63,11 @@ function createMailAccountDatabase(): AppDatabase {
             },
             async first<T>() {
               if (sql.includes("AND email = ?")) {
-                const [channelId, userId, email] = values as [string, string, string];
+                const [channelId, userId, email] = values as [
+                  string,
+                  string,
+                  string,
+                ];
                 return (rows.find(
                   (row) =>
                     row.channel_id === channelId &&
@@ -132,6 +158,10 @@ test("connection status reports empty when no accounts", async () => {
   await withDatabase(createMailAccountDatabase(), async () => {
     const service = new MailService();
     const status = await service.getConnectionStatus("ch", "user");
-    assert.deepEqual(status, { connected: false, email: null, accountCount: 0 });
+    assert.deepEqual(status, {
+      connected: false,
+      email: null,
+      accountCount: 0,
+    });
   });
 });

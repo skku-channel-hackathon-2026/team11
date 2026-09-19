@@ -185,10 +185,7 @@ function Mail() {
       : ''
   const bannerMessage = errorMessage || sdkError || statusMessage
 
-  const canConnect = useMemo(
-    () => /.+@.+\..+/.test(email.trim()),
-    [email]
-  )
+  const canConnect = useMemo(() => /.+@.+\..+/.test(email.trim()), [email])
 
   const handleConnect = useCallback(async () => {
     setErrorMessage('')

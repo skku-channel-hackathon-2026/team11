@@ -5,11 +5,11 @@
 
 ## 역할
 
-| 역할 | 책임 | 주 작업 폴더 |
-| --- | --- | --- |
-| 학교 공지 수집 담당 | 학교 공지 게시판 크롤링, 공통 Notice 정규화, D1 저장, 전체 공지 제공 | `server/src/features/school-notices/`, `packages/shared/src/school-notices.ts` |
-| 나의 추천 공지 담당 | `Notice[]`를 받아 사용자 프로필/GPT/필터링으로 개인화 공지 제공 | `server/src/features/recommendations/`, `packages/shared/src/recommendations.ts` |
-| 메일 연동 담당 | 메일 계정 연결, 메일 목록/본문 조회, 메일 데이터를 다른 기능에 전달 | `server/src/features/mail/`, `packages/shared/src/mail.ts` |
+| 역할                | 책임                                                                 | 주 작업 폴더                                                                     |
+| ------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 학교 공지 수집 담당 | 학교 공지 게시판 크롤링, 공통 Notice 정규화, D1 저장, 전체 공지 제공 | `server/src/features/school-notices/`, `packages/shared/src/school-notices.ts`   |
+| 나의 추천 공지 담당 | `Notice[]`를 받아 사용자 프로필/GPT/필터링으로 개인화 공지 제공      | `server/src/features/recommendations/`, `packages/shared/src/recommendations.ts` |
+| 메일 연동 담당      | 메일 계정 연결, 메일 목록/본문 조회, 메일 데이터를 다른 기능에 전달  | `server/src/features/mail/`, `packages/shared/src/mail.ts`                       |
 
 ## 공통 계약
 
