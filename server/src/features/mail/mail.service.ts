@@ -12,7 +12,10 @@ import {
   insertMailAccount,
   listMailAccounts,
 } from "./mail.store.js";
-import { defaultMailProvider, type MailProviderAdapter } from "./mail.provider.js";
+import {
+  defaultMailProvider,
+  type MailProviderAdapter,
+} from "./mail.provider.js";
 
 /**
  * 메일 연동 기능의 핵심 서비스.

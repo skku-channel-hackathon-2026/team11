@@ -47,7 +47,11 @@
   border-bottom: 1px solid var(--notice-line);
   border-radius: 0;
   background:
-    radial-gradient(circle at 80% 28%, rgba(47, 125, 214, 0.26), transparent 26%),
+    radial-gradient(
+      circle at 80% 28%,
+      rgba(47, 125, 214, 0.26),
+      transparent 26%
+    ),
     radial-gradient(circle at 96% 82%, rgba(90, 48, 29, 0.34), transparent 30%),
     linear-gradient(135deg, #121211 0%, #332b26 74%);
   box-shadow: none;
