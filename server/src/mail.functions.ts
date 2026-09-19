@@ -5,6 +5,8 @@ import {
   DisconnectMailAccountInputSchema,
   DisconnectMailAccountOutputSchema,
   ListMailMessagesInputSchema,
+  StartGmailOAuthInputSchema,
+  StartGmailOAuthOutputSchema,
   MAIL_FUNCTIONS,
   MailAccountListOutputSchema,
   MailAccountSchema,
@@ -13,6 +15,7 @@ import {
   type ConnectMailAccountInput,
   type DisconnectMailAccountInput,
   type ListMailMessagesInput,
+  type StartGmailOAuthInput,
 } from "@tutorial/shared";
 import {
   Ctx,
@@ -76,6 +79,21 @@ export class MailFunctions {
       ),
     };
   }
+
+  @Func(MAIL_FUNCTIONS.startGmailOAuth)
+  @Description("Start Gmail OAuth connection for the current user")
+  @InputSchema(StartGmailOAuthInputSchema)
+  @OutputSchema(StartGmailOAuthOutputSchema)
+  async startGmailOAuth(
+    @Ctx() ctx: Context,
+    @Input() _input: StartGmailOAuthInput,
+  ): Promise<z.infer<typeof StartGmailOAuthOutputSchema>> {
+    return this.mailService.startGmailOAuth(
+      ctx.channel.id,
+      userIdFromContext(ctx),
+    );
+  }
+
 
   @Func(MAIL_FUNCTIONS.connectAccount)
   @Description("Connect a mail account to the current user's unified inbox")

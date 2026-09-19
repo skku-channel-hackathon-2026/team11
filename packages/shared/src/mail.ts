@@ -6,6 +6,7 @@ export const MAIL_FUNCTIONS = {
   connectAccount: "mail.connectAccount",
   disconnectAccount: "mail.disconnectAccount",
   listMessages: "mail.listMessages",
+  startGmailOAuth: "mail.startGmailOAuth",
 } as const;
 
 /** 현재 통합 지원하는 메일 제공자. 채널톡 수신함 연동 기준(Gmail, Outlook). */
@@ -39,6 +40,18 @@ export const ConnectMailAccountInputSchema = z.object({
 export type ConnectMailAccountInput = z.infer<
   typeof ConnectMailAccountInputSchema
 >;
+
+export const StartGmailOAuthInputSchema = z.object({
+  redirectPath: z.string().optional(),
+});
+
+export type StartGmailOAuthInput = z.infer<typeof StartGmailOAuthInputSchema>;
+
+export const StartGmailOAuthOutputSchema = z.object({
+  authorizationUrl: z.string().url(),
+});
+
+export type StartGmailOAuthOutput = z.infer<typeof StartGmailOAuthOutputSchema>;
 
 export const DisconnectMailAccountInputSchema = z.object({
   accountId: z.string().min(1),
@@ -81,6 +94,11 @@ export const MailMessageSchema = z.object({
   from: z.string(),
   receivedAt: z.string(),
   snippet: z.string(),
+  isSchoolRelated: z.boolean().default(false),
+  gmailMessageId: z.string().nullable().default(null),
+  gmailThreadId: z.string().nullable().default(null),
+  rfc822MessageId: z.string().nullable().default(null),
+  externalUrl: z.string().url().nullable().default(null),
 });
 
 export type MailMessage = z.infer<typeof MailMessageSchema>;
@@ -95,8 +113,17 @@ export const ListMailMessagesInputSchema = z.object({
 
 export type ListMailMessagesInput = z.infer<typeof ListMailMessagesInputSchema>;
 
+export const FailedMailAccountSchema = z.object({
+  accountId: z.string(),
+  accountEmail: z.string(),
+  provider: MailProviderSchema,
+});
+
+export type FailedMailAccount = z.infer<typeof FailedMailAccountSchema>;
+
 export const MailMessageListOutputSchema = z.object({
   messages: z.array(MailMessageSchema),
+  failedAccounts: z.array(FailedMailAccountSchema).default([]),
 });
 
 export type MailMessageListOutput = z.infer<typeof MailMessageListOutputSchema>;

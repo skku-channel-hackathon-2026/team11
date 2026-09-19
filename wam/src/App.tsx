@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import type { CSSProperties } from 'react'
 import {
   HeightSynchronizer,
   WamHeader,
@@ -7,77 +6,75 @@ import {
 } from '@channel.io/app-sdk-wam-ui'
 import { useWamClose } from '@channel.io/app-sdk-wam'
 
+import Home from './pages/Home'
 import Send from './pages/Send'
 import Mail from './pages/Mail'
+import AgentChat from './pages/Chat'
+import Schedule from './pages/Schedule'
+import { ChannelTalkWidget } from './components/ChannelTalkWidget'
 
-type View = 'notice' | 'mail'
+type View = 'home' | 'notice' | 'mail' | 'schedule'
 
 function App() {
   const { close } = useWamClose()
-  const [view, setView] = useState<View>('notice')
+  const [view, setView] = useState<View>('home')
 
   return (
     <WamThemeProvider>
       <HeightSynchronizer>
         <WamHeader
-          title="학교 공지 · 메일"
+          title="한눈"
           onClose={close}
         />
-        <div style={{ padding: isMobile() ? '0 16px 16px' : '0 24px 24px' }}>
-          <div style={styles.tabs}>
+        <div className="wam-content">
+          <nav
+            className="app-tabs"
+            aria-label="주요 화면"
+          >
             <button
               type="button"
-              style={{
-                ...styles.tab,
-                ...(view === 'notice' ? styles.tabActive : {}),
-              }}
+              className={view === 'home' ? 'is-active' : undefined}
+              onClick={() => setView('home')}
+            >
+              한눈보기
+            </button>
+            <button
+              type="button"
+              className={view === 'notice' ? 'is-active' : undefined}
               onClick={() => setView('notice')}
             >
               학교 공지
             </button>
             <button
               type="button"
-              style={{
-                ...styles.tab,
-                ...(view === 'mail' ? styles.tabActive : {}),
-              }}
+              className={view === 'mail' ? 'is-active' : undefined}
               onClick={() => setView('mail')}
             >
               메일
             </button>
-          </div>
-          {view === 'notice' ? <Send /> : <Mail />}
+            <button
+              type="button"
+              className={view === 'schedule' ? 'is-active' : undefined}
+              onClick={() => setView('schedule')}
+            >
+              학사 일정
+            </button>
+          </nav>
+          {view === 'home' ? (
+            <Home />
+          ) : view === 'notice' ? (
+            <Send onNavigateHome={() => setView('home')} />
+          ) : view === 'mail' ? (
+            <Mail />
+          ) : (
+            <Schedule />
+          )}
         </div>
+        <AgentChat />
+        <ChannelTalkWidget />
       </HeightSynchronizer>
     </WamThemeProvider>
   )
 }
-
-const styles = {
-  tabs: {
-    display: 'inline-flex',
-    padding: 3,
-    margin: '0 0 16px',
-    border: '1px solid #d9dee3',
-    borderRadius: 8,
-    background: '#f7f8fa',
-  },
-  tab: {
-    height: 32,
-    padding: '0 14px',
-    border: 0,
-    borderRadius: 6,
-    background: 'transparent',
-    color: '#59636e',
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: 'pointer',
-  },
-  tabActive: {
-    background: '#fff',
-    color: '#20252a',
-    boxShadow: '0 1px 3px rgba(20, 24, 28, 0.12)',
-  },
-} satisfies Record<string, CSSProperties>
 
 export default App

@@ -1,24 +1,39 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react'
 import { useCallFunction } from '@channel.io/app-sdk-wam'
 import {
   MAIL_FUNCTIONS,
   type MailAccount,
   type MailAccountListOutput,
   type MailConnectionStatus,
+  type FailedMailAccount,
   type MailMessage,
   type MailMessageListOutput,
   type MailProvider,
+  type StartGmailOAuthOutput,
 } from '@tutorial/shared'
-import { Button, HStack, Text, VStack } from '@channel.io/bezier-react/beta'
-import { InlineBanner } from '@channel.io/app-sdk-wam-ui'
 
 import { useTutorialWamData } from '../../hooks/useTutorialWamData'
+import './Mail.css'
 
 const providers: { value: MailProvider; label: string }[] = [
   { value: 'gmail', label: 'Gmail' },
   { value: 'outlook', label: 'Outlook' },
 ]
+
+function formatDate(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value.slice(0, 16).replace('T', ' ')
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+function providerLabel(provider: MailProvider): string {
+  return provider === 'gmail' ? 'Gmail' : 'Outlook'
+}
 
 function AccountRow({
   account,
@@ -30,58 +45,66 @@ function AccountRow({
   disabled: boolean
 }) {
   return (
-    <div style={styles.accountRow}>
-      <div style={{ minWidth: 0 }}>
-        <Text
-          typo="14"
-          bold
-        >
-          {account.email}
-        </Text>
-        <Text
-          typo="12"
-          color="text-neutral-light"
-        >
-          {account.provider} · {account.connectedAt.slice(0, 10)}
-        </Text>
+    <article className="mail-account-card">
+      <div className="mail-account-card__mark">{providerLabel(account.provider)[0]}</div>
+      <div className="mail-account-card__body">
+        <span>{providerLabel(account.provider)}</span>
+        <strong>{account.email}</strong>
+        <p>연결일 {account.connectedAt.slice(0, 10)}</p>
       </div>
-      <Button
-        variant="outlined"
-        semantic="secondary"
-        size="s"
-        label="연결 해제"
+      <button
+        type="button"
         disabled={disabled}
         onClick={() => onDisconnect(account.id)}
-      />
-    </div>
+      >
+        연결 해제
+      </button>
+    </article>
   )
 }
 
-function MessageCard({ message }: { message: MailMessage }) {
+function MessageCard({
+  message,
+  showAccount,
+}: {
+  message: MailMessage
+  showAccount: boolean
+}) {
+  const openOriginal = () => {
+    if (!message.externalUrl) return
+    window.open(message.externalUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (!message.externalUrl) return
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      openOriginal()
+    }
+  }
+
   return (
-    <article style={styles.card}>
-      <HStack
-        justify="between"
-        align="start"
-        spacing={8}
-      >
-        <div style={{ minWidth: 0 }}>
-          <Text
-            typo="14"
-            bold
-          >
-            {message.subject}
-          </Text>
-          <Text
-            typo="12"
-            color="text-neutral-light"
-          >
-            {message.from} · {message.receivedAt.slice(0, 16).replace('T', ' ')}
-          </Text>
+    <article
+      className={`mail-card ${message.externalUrl ? 'is-clickable' : ''}`}
+      role={message.externalUrl ? 'link' : undefined}
+      tabIndex={message.externalUrl ? 0 : undefined}
+      aria-label={message.externalUrl ? `${message.subject || '메일'} Gmail 원문 열기` : undefined}
+      onClick={openOriginal}
+      onKeyDown={handleKeyDown}
+    >
+      <div className="mail-card__rail" />
+      <div className="mail-card__body">
+        <div className="mail-card__meta">
+          <span>{message.from || '발신자 없음'}</span>
+          <time dateTime={message.receivedAt}>{formatDate(message.receivedAt)}</time>
         </div>
-        <span style={styles.badge}>{message.accountEmail}</span>
-      </HStack>
-      <p style={styles.snippet}>{message.snippet}</p>
+        <h2>{message.subject || '(제목 없음)'}</h2>
+        <p>{message.snippet || '미리보기 내용이 없습니다.'}</p>
+        <div className="mail-card__footer">
+          {showAccount ? <span>{message.accountEmail}</span> : <span>{providerLabel(message.provider)}</span>}
+          {showAccount && <span>{providerLabel(message.provider)}</span>}
+        </div>
+      </div>
     </article>
   )
 }
@@ -95,8 +118,12 @@ function Mail() {
   const [accounts, setAccounts] = useState<MailAccount[]>([])
   const [status, setStatus] = useState<MailConnectionStatus | null>(null)
   const [messages, setMessages] = useState<MailMessage[]>([])
+  const [failedAccounts, setFailedAccounts] = useState<FailedMailAccount[]>([])
+  const [selectedMailbox, setSelectedMailbox] = useState('all')
+  const [schoolOnly, setSchoolOnly] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [messageWarning, setMessageWarning] = useState('')
 
   const {
     call: getConnectionStatus,
@@ -113,6 +140,14 @@ function Mail() {
   } = useCallFunction<MailAccountListOutput>({
     appId,
     name: MAIL_FUNCTIONS.listAccounts,
+  })
+  const {
+    call: startGmailOAuth,
+    loading: gmailOAuthLoading,
+    error: gmailOAuthError,
+  } = useCallFunction<StartGmailOAuthOutput>({
+    appId,
+    name: MAIL_FUNCTIONS.startGmailOAuth,
   })
   const {
     call: connectAccount,
@@ -140,14 +175,26 @@ function Mail() {
   })
 
   const refresh = useCallback(async () => {
-    const [statusOutput, accountsOutput, messagesOutput] = await Promise.all([
+    setMessageWarning('')
+    const [statusOutput, accountsOutput] = await Promise.all([
       getConnectionStatus({}),
       listAccounts({}),
-      listMessages({}),
     ])
     setStatus(statusOutput)
     setAccounts(accountsOutput.accounts)
-    setMessages(messagesOutput.messages)
+
+    try {
+      const messagesOutput = await listMessages({})
+      setMessages(messagesOutput.messages)
+      setFailedAccounts(messagesOutput.failedAccounts ?? [])
+    } catch (error) {
+      console.error('메일 메시지 조회 실패', error)
+      setMessages([])
+      setFailedAccounts([])
+      setMessageWarning(
+        '메일 계정은 연결되었지만 메시지를 불러오지 못했습니다. 서버 로그를 확인해주세요.'
+      )
+    }
   }, [getConnectionStatus, listAccounts, listMessages])
 
   useEffect(() => {
@@ -158,8 +205,9 @@ function Mail() {
       setErrorMessage('')
       try {
         await refresh()
-      } catch {
-        if (active) setErrorMessage('메일 데이터를 불러오지 못했습니다.')
+      } catch (error) {
+        console.error('메일 계정 조회 실패', error)
+        if (active) setErrorMessage('메일 계정 정보를 불러오지 못했습니다.')
       }
     }
 
@@ -169,26 +217,100 @@ function Mail() {
     }
   }, [appId, refresh])
 
+  useEffect(() => {
+    if (!appId) return
+
+    function reloadAfterOAuth() {
+      if (document.visibilityState === 'visible') {
+        void refresh()
+      }
+    }
+
+    window.addEventListener('focus', reloadAfterOAuth)
+    document.addEventListener('visibilitychange', reloadAfterOAuth)
+    return () => {
+      window.removeEventListener('focus', reloadAfterOAuth)
+      document.removeEventListener('visibilitychange', reloadAfterOAuth)
+    }
+  }, [appId, refresh])
+
   const loading =
     statusLoading ||
     accountsLoading ||
+    gmailOAuthLoading ||
     connectLoading ||
     disconnectLoading ||
     messagesLoading
   const sdkError =
     statusError ||
     accountsError ||
+    gmailOAuthError ||
     connectError ||
     disconnectError ||
     messagesError
       ? '요청을 처리하지 못했습니다. 로컬 Worker/D1 실행 상태를 확인해주세요.'
       : ''
-  const bannerMessage = errorMessage || sdkError || statusMessage
+  const bannerMessage = errorMessage || sdkError || messageWarning || statusMessage
 
   const canConnect = useMemo(
     () => /.+@.+\..+/.test(email.trim()),
     [email]
   )
+
+  useEffect(() => {
+    if (selectedMailbox === 'all') return
+    if (!accounts.some((account) => account.id === selectedMailbox)) {
+      setSelectedMailbox('all')
+    }
+  }, [accounts, selectedMailbox])
+
+  const selectedAccount = useMemo(
+    () => accounts.find((account) => account.id === selectedMailbox) ?? null,
+    [accounts, selectedMailbox]
+  )
+
+  const mailboxMessages = useMemo(
+    () =>
+      selectedMailbox === 'all'
+        ? messages
+        : messages.filter((message) => message.accountId === selectedMailbox),
+    [messages, selectedMailbox]
+  )
+
+  const visibleMessages = useMemo(
+    () => schoolOnly
+      ? mailboxMessages.filter((message) => message.isSchoolRelated)
+      : mailboxMessages,
+    [mailboxMessages, schoolOnly]
+  )
+
+  const visibleFailedAccounts = useMemo(
+    () =>
+      selectedMailbox === 'all'
+        ? failedAccounts
+        : failedAccounts.filter((account) => account.accountId === selectedMailbox),
+    [failedAccounts, selectedMailbox]
+  )
+
+  const inboxTitle = selectedAccount
+    ? selectedAccount.email
+    : '통합 수신함'
+
+  const handleStartGmailOAuth = useCallback(async () => {
+    setErrorMessage('')
+    setStatusMessage('')
+    try {
+      const output = await startGmailOAuth({})
+      window.open(output.authorizationUrl, '_blank', 'noopener,noreferrer')
+      setStatusMessage(
+        'Gmail 인증 창을 열었습니다. 인증 후 이 화면으로 돌아오면 자동으로 다시 조회합니다.'
+      )
+    } catch {
+      setErrorMessage(
+        'Gmail 인증을 시작하지 못했습니다. GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REDIRECT_URI 설정을 확인해주세요.'
+      )
+    }
+  }, [startGmailOAuth])
 
   const handleConnect = useCallback(async () => {
     setErrorMessage('')
@@ -219,29 +341,39 @@ function Mail() {
   )
 
   return (
-    <VStack spacing={16}>
-      <section style={styles.panel}>
-        <Text
-          typo="16"
-          bold
-        >
-          메일 계정 연결
-        </Text>
-        <Text
-          typo="12"
-          color="text-neutral-light"
-        >
-          {status
-            ? status.connected
-              ? `연결된 계정 ${status.accountCount}개 · 통합 수신함`
-              : '아직 연결된 메일 계정이 없습니다.'
-            : '상태를 확인하는 중입니다.'}
-        </Text>
-        <div style={styles.formGrid}>
-          <label style={styles.label}>
-            제공자
+    <main className="notice-shell mail-shell">
+      <header className="notice-hero mail-hero">
+        <div className="notice-hero__topline">
+          <span className="notice-hero__brand">SKKU MAIL</span>
+          <span className="notice-hero__count">
+            {accounts.length} 계정 / {visibleMessages.length} 메일
+          </span>
+        </div>
+        <h1>학교 생활 메일을 한곳에서 확인하세요.</h1>
+        <p>
+          Gmail 계정을 연결하고 최근 메일을 통합 수신함 형태로 정리합니다.
+        </p>
+      </header>
+
+      <section className="mail-panel">
+        <div className="mail-panel__head">
+          <div>
+            <span>ACCOUNT</span>
+            <strong>메일 계정 연결</strong>
+            <p>
+              {status
+                ? status.connected
+                  ? `연결된 계정 ${status.accountCount}개`
+                  : '아직 연결된 메일 계정이 없습니다.'
+                : '상태를 확인하는 중입니다.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="mail-form-grid">
+          <label className="mail-field">
+            <span>제공자</span>
             <select
-              style={styles.input}
               value={provider}
               onChange={(event) =>
                 setProvider(event.target.value as MailProvider)
@@ -257,28 +389,37 @@ function Mail() {
               ))}
             </select>
           </label>
-          <label style={styles.label}>
-            이메일 주소
+          <label className="mail-field">
+            <span>이메일 주소</span>
             <input
-              style={styles.input}
               value={email}
               placeholder="예: me@gmail.com"
               onChange={(event) => setEmail(event.target.value)}
             />
           </label>
         </div>
-        <div style={{ marginTop: 12 }}>
-          <Button
-            variant="filled"
-            semantic="primary"
-            label={connectLoading ? '연결 중' : '계정 연결'}
+
+        <div className="mail-actions">
+          <button
+            type="button"
+            className="mail-primary-button"
+            disabled={loading}
+            onClick={() => void handleStartGmailOAuth()}
+          >
+            {gmailOAuthLoading ? 'Gmail 인증 중' : 'Gmail 계정 연결'}
+          </button>
+          <button
+            type="button"
+            className="mail-secondary-button"
             disabled={loading || !canConnect}
             onClick={() => void handleConnect()}
-          />
+          >
+            {connectLoading ? '연결 중' : '수동 연결'}
+          </button>
         </div>
 
         {accounts.length > 0 && (
-          <div style={styles.accountList}>
+          <div className="mail-account-list">
             {accounts.map((account) => (
               <AccountRow
                 key={account.id}
@@ -291,131 +432,113 @@ function Mail() {
         )}
       </section>
 
-      <HStack
-        justify="between"
-        align="center"
-      >
-        <Text
-          typo="16"
-          bold
-        >
-          통합 수신함
-        </Text>
-        <Button
-          variant="outlined"
-          semantic="primary"
-          label={messagesLoading ? '새로고침 중' : '새로고침'}
-          disabled={loading}
-          onClick={() => {
-            setErrorMessage('')
-            setStatusMessage('')
-            void refresh().catch(() =>
-              setErrorMessage('메일을 새로고침하지 못했습니다.')
-            )
-          }}
-        />
-      </HStack>
+      <section className="mail-inbox-head">
+        <div>
+          <span>INBOX</span>
+          <strong>{inboxTitle}</strong>
+          <p>
+            {selectedAccount
+              ? '선택한 계정의 메일만 표시합니다.'
+              : '연결된 모든 계정의 메일을 최신순으로 합쳐 보여줍니다.'}
+          </p>
+        </div>
+        <div className="mail-inbox-controls">
+          {accounts.length > 0 && (
+            <label className="mail-inline-select" aria-label="수신함 선택">
+              <span>수신함</span>
+              <select
+                value={selectedMailbox}
+                disabled={loading}
+                onChange={(event) => setSelectedMailbox(event.target.value)}
+              >
+                <option value="all">통합 수신함</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.email}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <button
+            type="button"
+            className={`mail-filter-button ${schoolOnly ? 'is-on' : ''}`}
+            aria-pressed={schoolOnly}
+            onClick={() => setSchoolOnly((value) => !value)}
+          >
+            학교 필터 {schoolOnly ? 'ON' : 'OFF'}
+          </button>
+          <button
+            type="button"
+            className="mail-secondary-button mail-refresh-button"
+            disabled={loading}
+            onClick={() => {
+              setErrorMessage('')
+              setStatusMessage('')
+              void refresh().catch(() =>
+                setErrorMessage('메일 계정 정보를 불러오지 못했습니다.')
+              )
+            }}
+          >
+            {messagesLoading ? '새로고침 중' : '새로고침'}
+          </button>
+        </div>
+      </section>
 
       {bannerMessage && (
-        <InlineBanner
-          variant={errorMessage || sdkError ? 'error' : 'info'}
-          content={bannerMessage}
-        />
+        <div
+          className={
+            errorMessage || sdkError
+              ? 'mail-status is-error'
+              : messageWarning
+                ? 'mail-status is-warning'
+                : 'mail-status'
+          }
+        >
+          {bannerMessage}
+        </div>
       )}
 
-      <section style={styles.list}>
-        {loading && messages.length === 0 ? (
-          <Text color="text-neutral-light">불러오는 중입니다.</Text>
-        ) : messages.length > 0 ? (
-          messages.map((message) => (
+      {visibleFailedAccounts.map((account) => (
+        <div key={account.accountId} className="mail-status is-warning">
+          {account.accountEmail} 계정의 메일을 불러오지 못했습니다. 다른 계정의
+          메일은 계속 표시합니다.
+        </div>
+      ))}
+
+      <section className="mail-list" aria-label="메일 목록">
+        {loading && visibleMessages.length === 0 ? (
+          <div className="state-panel">
+            <div className="state-panel__pulse" />
+            <strong>메일 불러오는 중</strong>
+            <p>연결 계정과 최근 메일을 확인하고 있습니다.</p>
+          </div>
+        ) : visibleMessages.length > 0 ? (
+          visibleMessages.map((message) => (
             <MessageCard
               key={message.id}
               message={message}
+              showAccount={selectedMailbox === 'all'}
             />
           ))
         ) : (
-          <Text color="text-neutral-light">
-            표시할 메일이 없습니다. 메일 계정을 먼저 연결해보세요.
-          </Text>
+          <div className="state-panel">
+            <div className="state-panel__mark">0</div>
+            <strong>{schoolOnly ? '학교 관련 메일이 없습니다.' : '표시할 메일이 없습니다.'}</strong>
+            <p>
+              {schoolOnly
+                ? '학교 필터를 끄면 전체 메일을 다시 볼 수 있습니다.'
+                : selectedAccount
+                  ? '이 계정에 표시할 메일이 없습니다. 새로고침을 눌러 다시 확인해보세요.'
+                  : accounts.length === 0
+                    ? 'Gmail 계정을 연결하면 통합 수신함에서 메일을 확인할 수 있습니다.'
+                    : '새로고침을 눌러 메일을 불러와주세요.'}
+            </p>
+          </div>
         )}
       </section>
-    </VStack>
+    </main>
   )
 }
-
-const styles = {
-  panel: {
-    padding: 14,
-    border: '1px solid var(--bdr-black-lightest, #e5e8eb)',
-    borderRadius: 8,
-  },
-  formGrid: {
-    display: 'grid',
-    gridTemplateColumns: '112px 1fr',
-    gap: 10,
-    marginTop: 12,
-  },
-  label: {
-    display: 'grid',
-    gap: 6,
-    color: '#31373d',
-    fontSize: 12,
-    fontWeight: 600,
-  },
-  input: {
-    boxSizing: 'border-box',
-    width: '100%',
-    height: 36,
-    border: '1px solid #d9dee3',
-    borderRadius: 6,
-    padding: '0 10px',
-    color: '#20252a',
-    fontSize: 14,
-    background: '#fff',
-  },
-  accountList: {
-    display: 'grid',
-    gap: 8,
-    marginTop: 12,
-  },
-  accountRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-    padding: 10,
-    border: '1px solid #e5e8eb',
-    borderRadius: 8,
-    background: '#fff',
-  },
-  list: {
-    display: 'grid',
-    gap: 10,
-    maxHeight: 260,
-    overflowY: 'auto',
-    paddingRight: 2,
-  },
-  card: {
-    padding: 12,
-    border: '1px solid #e5e8eb',
-    borderRadius: 8,
-    background: '#fff',
-  },
-  badge: {
-    flex: '0 0 auto',
-    padding: '3px 7px',
-    borderRadius: 6,
-    background: '#eef2ff',
-    color: '#3b5bdb',
-    fontSize: 11,
-    fontWeight: 700,
-  },
-  snippet: {
-    margin: '8px 0 0',
-    color: '#4f5963',
-    fontSize: 13,
-    lineHeight: 1.45,
-  },
-} satisfies Record<string, CSSProperties>
 
 export default Mail

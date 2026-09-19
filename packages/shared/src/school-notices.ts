@@ -4,6 +4,8 @@ export const SCHOOL_NOTICE_COLLECTION_FUNCTIONS = {
   listNotices: "schoolNotice.listNotices",
   seedNotices: "schoolNotice.seedNotices",
   syncNotices: "schoolNotice.syncNotices",
+  toggleFavorite: "schoolNotice.toggleFavorite",
+  listFavorites: "schoolNotice.listFavorites",
 } as const;
 
 export const NoticeSchema = z.object({
@@ -18,6 +20,8 @@ export const NoticeSchema = z.object({
   relevant: z.boolean().optional(),
   category: z.string().nullable().optional(),
   reason: z.string().nullable().optional(),
+  isFavorite: z.boolean().optional(),
+  favoritedAt: z.string().nullable().optional(),
 });
 
 export type Notice = z.infer<typeof NoticeSchema>;
@@ -66,3 +70,28 @@ export const SyncNoticesOutputSchema = z.object({
 });
 
 export type SyncNoticesOutput = z.infer<typeof SyncNoticesOutputSchema>;
+
+export const ToggleNoticeFavoriteInputSchema = z.object({
+  noticeId: z.string().min(1),
+});
+
+export type ToggleNoticeFavoriteInput = z.infer<
+  typeof ToggleNoticeFavoriteInputSchema
+>;
+
+export const ToggleNoticeFavoriteOutputSchema = z.object({
+  noticeId: z.string(),
+  isFavorite: z.boolean(),
+});
+
+export type ToggleNoticeFavoriteOutput = z.infer<
+  typeof ToggleNoticeFavoriteOutputSchema
+>;
+
+export const FavoriteNoticesOutputSchema = z.object({
+  notices: z.array(NoticeSchema),
+});
+
+export type FavoriteNoticesOutput = z.infer<
+  typeof FavoriteNoticesOutputSchema
+>;

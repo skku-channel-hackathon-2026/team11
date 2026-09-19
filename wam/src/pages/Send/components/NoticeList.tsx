@@ -6,6 +6,7 @@ type NoticeListProps = {
   loading: boolean
   emptyTitle: string
   emptyDescription: string
+  onToggleFavorite: (noticeId: string) => void
 }
 
 export function NoticeList({
@@ -13,6 +14,7 @@ export function NoticeList({
   loading,
   emptyTitle,
   emptyDescription,
+  onToggleFavorite,
 }: NoticeListProps) {
   if (loading && notices.length === 0) {
     return (
@@ -43,6 +45,7 @@ export function NoticeList({
         <NoticeCard
           key={notice.id}
           notice={notice}
+          onToggleFavorite={onToggleFavorite}
         />
       ))}
     </section>

@@ -4,8 +4,10 @@ import type {
   ConnectMailAccountInput,
   MailAccount,
   MailConnectionStatus,
+  FailedMailAccount,
   MailMessage,
   MailMessageListOutput,
+  StartGmailOAuthOutput,
 } from "@tutorial/shared";
 import {
   deleteMailAccount,
@@ -13,24 +15,32 @@ import {
   listMailAccounts,
 } from "./mail.store.js";
 import { defaultMailProvider, type MailProviderAdapter } from "./mail.provider.js";
+import { GmailMailProvider } from "./providers/gmail.provider.js";
+import {
+  createGmailAuthorizationUrl,
+  hasGmailOAuthConfig,
+  resolveGmailAccessToken,
+} from "./gmail-oauth.js";
+import { withSchoolRelatedFlag } from "./school-mail-classifier.js";
 
 /**
  * 메일 연동 기능의 핵심 서비스.
  *
  * 여러 메일 계정을 연결하고, 연결된 모든 계정의 메시지를 하나의 통합
  * 수신함으로 묶어(merge) 최신순으로 제공한다. 저장은 D1(mail_accounts),
- * 메시지 조회는 제공자 어댑터(기본: mock)를 통해 이뤄진다.
- *
- * NestJS가 인자 없이 생성할 수 있도록 생성자 주입을 두지 않고, provider는
- * 기본값(mock)을 쓰되 테스트/대체 구현에서는 `useProvider`로 교체한다.
+ * 메시지 조회는 제공자 어댑터를 통해 이뤄진다.
  */
 @Injectable()
 export class MailService {
   private provider: MailProviderAdapter = defaultMailProvider;
+  private gmailProvider: MailProviderAdapter | null = hasGmailOAuthConfig()
+    ? new GmailMailProvider(resolveGmailAccessToken)
+    : null;
 
   /** 테스트나 실제 Gmail/Outlook 어댑터로 메시지 제공자를 교체한다. */
   useProvider(provider: MailProviderAdapter): void {
     this.provider = provider;
+    this.gmailProvider = null;
   }
 
   async listAccounts(
@@ -49,6 +59,15 @@ export class MailService {
       connected: accounts.length > 0,
       email: accounts[0]?.email ?? null,
       accountCount: accounts.length,
+    };
+  }
+
+  async startGmailOAuth(
+    channelId: string,
+    userId: string,
+  ): Promise<StartGmailOAuthOutput> {
+    return {
+      authorizationUrl: createGmailAuthorizationUrl(channelId, userId),
     };
   }
 
@@ -88,15 +107,49 @@ export class MailService {
       ? accounts.filter((account) => account.id === accountId)
       : accounts;
 
-    const perAccount = await Promise.all(
-      targets.map((account) => this.provider.fetchMessages(account)),
+    const settled = await Promise.allSettled(
+      targets.map(async (account) => ({
+        account,
+        messages: await this.providerFor(account).fetchMessages(account),
+      })),
     );
 
-    const messages = perAccount
-      .flat()
-      .sort((a, b) => compareReceivedAtDesc(a, b));
+    const messages: MailMessage[] = [];
+    const failedAccounts: FailedMailAccount[] = [];
 
-    return { messages };
+    settled.forEach((result, index) => {
+      const account = targets[index];
+      if (!account) return;
+
+      if (result.status === "fulfilled") {
+        messages.push(...result.value.messages.map(withSchoolRelatedFlag));
+        return;
+      }
+
+      console.error("Mail messages fetch failed", {
+        accountId: account.id,
+        provider: account.provider,
+        error:
+          result.reason instanceof Error ? result.reason.message : "unknown",
+      });
+      failedAccounts.push({
+        accountId: account.id,
+        accountEmail: account.email,
+        provider: account.provider,
+      });
+    });
+
+    return {
+      messages: messages.sort((a, b) => compareReceivedAtDesc(a, b)),
+      failedAccounts,
+    };
+  }
+
+  private providerFor(account: MailAccount): MailProviderAdapter {
+    if (account.provider === "gmail" && this.gmailProvider) {
+      return this.gmailProvider;
+    }
+    return this.provider;
   }
 }
 

@@ -32,5 +32,47 @@ body {
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  background: #f4f1ec;
+  background:
+    linear-gradient(90deg, rgba(21, 21, 20, 0.055) 1px, transparent 1px) 16px
+      0 / 96px 100%,
+    #f4f1ec;
+}
+
+.app-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  width: min(calc(100% - 28px), 1180px);
+  margin: 14px auto 0;
+  padding: 4px;
+  border: 1px solid #ddd7cf;
+  border-radius: 10px;
+  background: rgba(255, 253, 249, 0.82);
+}
+
+.app-tabs button {
+  height: 34px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #625d56;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.app-tabs button.is-active {
+  background: #151514;
+  color: #fffdf9;
+}
+
+.app-tabs button:focus-visible {
+  outline: 2px solid #2f7dd6;
+  outline-offset: 2px;
+}
+
+@media (max-width: 520px) {
+  .app-tabs {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }

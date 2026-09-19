@@ -8,6 +8,7 @@ import type {
 } from "@tutorial/shared";
 import { NoticeRecommendationService } from "./features/recommendations/notice-recommendation.service.js";
 import { listAllNotices } from "./features/school-notices/school-notice.store.js";
+import { listFavoriteNotices, listNoticesWithFavorites, toggleNoticeFavorite } from "./features/school-notices/notice-favorite.store.js";
 import { syncSchoolNotices } from "./features/school-notices/school-notice-sync.js";
 import { upsertNotice } from "./school-notice.store.js";
 
@@ -58,6 +59,26 @@ export class SchoolNoticeService {
 
   async listNotices(input: NoticeListInput = {}): Promise<NoticeListOutput> {
     return listAllNotices(input);
+  }
+
+  async listNoticesForUser(
+    channelId: string,
+    userId: string,
+    input: NoticeListInput = {},
+  ): Promise<NoticeListOutput> {
+    return listNoticesWithFavorites(channelId, userId, input);
+  }
+
+  async listFavorites(channelId: string, userId: string): Promise<NoticeListOutput> {
+    return listFavoriteNotices(channelId, userId);
+  }
+
+  async toggleFavorite(
+    channelId: string,
+    userId: string,
+    noticeId: string,
+  ): Promise<boolean> {
+    return toggleNoticeFavorite(channelId, userId, noticeId);
   }
 
   async seedNotices(): Promise<SeedNoticesOutput> {

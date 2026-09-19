@@ -1,4 +1,4 @@
-import { SCHOOL_NOTICE_FUNCTIONS, TUTORIAL_WAM_NAME } from '@tutorial/shared'
+import { ACADEMIC_SCHEDULE_FUNCTIONS, CHAT_FUNCTIONS, HOME_FUNCTIONS, MAIL_FUNCTIONS, SCHOOL_NOTICE_FUNCTIONS, TUTORIAL_WAM_NAME } from '@tutorial/shared'
 
 type CallFunctionInput = {
   appId: string
@@ -25,6 +25,21 @@ const localFunctionNames = new Set<string>([
   SCHOOL_NOTICE_FUNCTIONS.listPersonalizedNotices,
   SCHOOL_NOTICE_FUNCTIONS.seedNotices,
   SCHOOL_NOTICE_FUNCTIONS.syncNotices,
+  SCHOOL_NOTICE_FUNCTIONS.toggleFavorite,
+  SCHOOL_NOTICE_FUNCTIONS.listFavorites,
+  MAIL_FUNCTIONS.getConnectionStatus,
+  MAIL_FUNCTIONS.listAccounts,
+  MAIL_FUNCTIONS.startGmailOAuth,
+  MAIL_FUNCTIONS.connectAccount,
+  MAIL_FUNCTIONS.disconnectAccount,
+  MAIL_FUNCTIONS.listMessages,
+  CHAT_FUNCTIONS.sendMessage,
+  HOME_FUNCTIONS.getDashboard,
+  HOME_FUNCTIONS.completeTask,
+  HOME_FUNCTIONS.undoTask,
+  HOME_FUNCTIONS.dismissTask,
+  ACADEMIC_SCHEDULE_FUNCTIONS.listSchedules,
+  ACADEMIC_SCHEDULE_FUNCTIONS.syncSchedules,
 ])
 
 function isLocalBrowser(): boolean {
@@ -50,7 +65,7 @@ if (
         throw new Error(`Unsupported local function: ${input.name}`)
       }
 
-      const response = await fetch('/api/dev/school-notice/function', {
+      const response = await fetch('/api/dev/function', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ name: input.name, params: input.params ?? {} }),

@@ -67,6 +67,11 @@ export class MockMailProvider implements MailProviderAdapter {
         from: `${sampleFromNames[pick]} <${sampleFromNames[pick].replace(/\s+/g, "").toLowerCase()}@${domain}>`,
         receivedAt,
         snippet: `${sampleSubjects[pick]} — ${account.email} 계정으로 수신된 미리보기 내용입니다.`,
+        isSchoolRelated: false,
+        gmailMessageId: null,
+        gmailThreadId: null,
+        rfc822MessageId: null,
+        externalUrl: null,
       });
     }
 

@@ -8,6 +8,12 @@ import { SchoolNoticeService } from "./school-notice.service.js";
 import { NoticeRecommendationService } from "./features/recommendations/notice-recommendation.service.js";
 import { MailFunctions } from "./mail.functions.js";
 import { MailService } from "./features/mail/mail.service.js";
+import { ChatFunctions } from "./chat.functions.js";
+import { ChatService } from "./features/chat/chat.service.js";
+import { HomeFunctions } from "./home.functions.js";
+import { DashboardService } from "./features/home/dashboard.service.js";
+import { AcademicScheduleFunctions } from "./academic-schedule.functions.js";
+import { AcademicScheduleService } from "./academic-schedule.service.js";
 
 @Module({
   imports: [ChannelAppModule.forRoot(channelAppOptions)],
@@ -19,6 +25,12 @@ import { MailService } from "./features/mail/mail.service.js";
     NoticeRecommendationService,
     MailFunctions,
     MailService,
+    ChatFunctions,
+    ChatService,
+    HomeFunctions,
+    DashboardService,
+    AcademicScheduleFunctions,
+    AcademicScheduleService,
     {
       provide: APP_GUARD,
       useFactory: () => new SignatureGuard(channelAppOptions),

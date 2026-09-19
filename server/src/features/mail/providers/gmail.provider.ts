@@ -1,5 +1,6 @@
 import type { MailAccount, MailMessage } from "@tutorial/shared";
 import type { MailProviderAdapter } from "../mail.provider.js";
+import { classifySchoolMail } from "../school-mail-classifier.js";
 
 /**
  * Gmail 제공자 어댑터 골격.
@@ -27,16 +28,62 @@ interface GmailHeader {
   value: string;
 }
 
+interface GmailMessagePart {
+  mimeType?: string;
+  body?: { data?: string };
+  parts?: GmailMessagePart[];
+}
+
 interface GmailMessageResponse {
   id: string;
+  threadId?: string;
   internalDate?: string;
   snippet?: string;
-  payload?: {
+  payload?: GmailMessagePart & {
     headers?: GmailHeader[];
   };
 }
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
+
+function normalizeRfc822MessageId(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.replace(/^<|>$/g, "");
+}
+
+function gmailSearchUrl(accountEmail: string, rfc822MessageId: string): string {
+  const query = `rfc822msgid:${rfc822MessageId}`;
+  const params = new URLSearchParams({ authuser: accountEmail });
+  return `https://mail.google.com/mail/u/0/?${params.toString()}#search/${encodeURIComponent(query)}`;
+}
+
+function decodeBase64Url(value: string): string {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function extractText(part: GmailMessagePart | undefined): string {
+  if (!part) return "";
+  const nested = part.parts?.map(extractText).filter(Boolean).join("\n") ?? "";
+  const data = part.body?.data;
+  if (!data) return nested;
+  try {
+    const decoded = decodeBase64Url(data);
+    if (part.mimeType === "text/html") {
+      return `${nested}\n${decoded.replace(/<[^>]+>/g, " ")}`.trim();
+    }
+    if (!part.mimeType || part.mimeType.startsWith("text/")) {
+      return `${nested}\n${decoded}`.trim();
+    }
+  } catch {
+    return nested;
+  }
+  return nested;
+}
 
 export class GmailMailProvider implements MailProviderAdapter {
   constructor(
@@ -53,6 +100,11 @@ export class GmailMailProvider implements MailProviderAdapter {
       { headers: authHeader },
     );
     if (!listResponse.ok) {
+      console.error("Gmail message list failed", {
+        status: listResponse.status,
+        accountId: account.id,
+        provider: account.provider,
+      });
       throw new Error(
         `Gmail list failed (${listResponse.status}) for ${account.email}`,
       );
@@ -63,10 +115,17 @@ export class GmailMailProvider implements MailProviderAdapter {
     const details = await Promise.all(
       ids.map(async (id) => {
         const detailResponse = await fetch(
-          `${GMAIL_API}/messages/${id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`,
+          `${GMAIL_API}/messages/${id}?format=full`,
           { headers: authHeader },
         );
-        if (!detailResponse.ok) return null;
+        if (!detailResponse.ok) {
+          console.error("Gmail message detail failed", {
+            status: detailResponse.status,
+            accountId: account.id,
+            provider: account.provider,
+          });
+          return null;
+        }
         return (await detailResponse.json()) as GmailMessageResponse;
       }),
     );
@@ -88,6 +147,15 @@ export class GmailMailProvider implements MailProviderAdapter {
     const receivedAt = detail.internalDate
       ? new Date(Number(detail.internalDate)).toISOString()
       : header("Date") || new Date().toISOString();
+    const rfc822MessageId = normalizeRfc822MessageId(header("Message-ID"));
+    const bodyText = extractText(detail.payload);
+    const classification = classifySchoolMail({
+      id: `${account.id}-${detail.id}`,
+      from: header("From"),
+      subject: header("Subject") || "(제목 없음)",
+      snippet: detail.snippet ?? "",
+      bodyText,
+    });
 
     return {
       id: `${account.id}-${detail.id}`,
@@ -98,6 +166,11 @@ export class GmailMailProvider implements MailProviderAdapter {
       from: header("From"),
       receivedAt,
       snippet: detail.snippet ?? "",
+      isSchoolRelated: classification.isSchoolRelated,
+      gmailMessageId: detail.id,
+      gmailThreadId: detail.threadId ?? null,
+      rfc822MessageId,
+      externalUrl: rfc822MessageId ? gmailSearchUrl(account.email, rfc822MessageId) : null,
     };
   }
 }

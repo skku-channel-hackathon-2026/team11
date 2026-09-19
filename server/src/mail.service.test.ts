@@ -80,6 +80,11 @@ const fakeProvider: MailProviderAdapter = {
       from: "from",
       receivedAt: new Date(Date.UTC(2026, 8, 19, base + n, 0, 0)).toISOString(),
       snippet: "snippet",
+      isSchoolRelated: false,
+      gmailMessageId: null,
+      gmailThreadId: null,
+      rfc822MessageId: null,
+      externalUrl: null,
     }));
   },
 };
@@ -134,4 +139,55 @@ test("connection status reports empty when no accounts", async () => {
     const status = await service.getConnectionStatus("ch", "user");
     assert.deepEqual(status, { connected: false, email: null, accountCount: 0 });
   });
+});
+
+
+test("gmail provider maps Message-ID to a token-free Gmail search URL", async () => {
+  const { GmailMailProvider } = await import("./features/mail/providers/gmail.provider.js");
+  const originalFetch = globalThis.fetch;
+  const account: MailAccount = {
+    id: "acc-gmail",
+    provider: "gmail",
+    email: "student@gmail.com",
+    displayName: null,
+    connectedAt: "2026-09-01T00:00:00.000Z",
+  };
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes("/messages?")) {
+      return Response.json({ messages: [{ id: "msg-1", threadId: "thread-1" }] });
+    }
+    if (url.includes("/messages/msg-1?")) {
+      return Response.json({
+        id: "msg-1",
+        threadId: "thread-1",
+        internalDate: String(Date.UTC(2026, 8, 19, 0, 0, 0)),
+        snippet: "snippet",
+        payload: {
+          headers: [
+            { name: "Subject", value: "Scholarship notice" },
+            { name: "From", value: "SKKU <help@skku.edu>" },
+            { name: "Message-ID", value: "<abc.123@example.com>" },
+          ],
+        },
+      });
+    }
+    return new Response("not found", { status: 404 });
+  }) as typeof fetch;
+
+  try {
+    const provider = new GmailMailProvider(async () => "access-token", 1);
+    const [message] = await provider.fetchMessages(account);
+    assert.equal(message?.gmailMessageId, "msg-1");
+    assert.equal(message?.gmailThreadId, "thread-1");
+    assert.equal(message?.rfc822MessageId, "abc.123@example.com");
+    assert.equal(
+      message?.externalUrl,
+      "https://mail.google.com/mail/u/0/?authuser=student%40gmail.com#search/rfc822msgid%3Aabc.123%40example.com",
+    );
+    assert.equal(message?.externalUrl.includes("access-token"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

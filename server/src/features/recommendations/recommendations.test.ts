@@ -162,7 +162,7 @@ test("false stays false; network, refusals, malformed and incomplete outputs thr
   );
 });
 
-test("recommends from shared Notice[], preserves order and original data, and exposes failures", async () => {
+test("recommends from shared Notice[], preserves order and skips per-notice failures", async () => {
   let calls = 0;
   const original = structuredClone(notices);
   const result = await recommendNotices(input.student, notices, {
@@ -175,14 +175,36 @@ test("recommends from shared Notice[], preserves order and original data, and ex
   assert.equal(result.notices[0]?.id, "2");
   assert.equal(result.notices[0]?.summary, analysis.summary);
   assert.equal(result.notices[0]?.category, "SCHOLARSHIP");
-  await assert.rejects(
-    recommendNotices(input.student, notices, {
+  assert.deepEqual(
+    await recommendNotices(input.student, notices, {
       apiKey: "test",
       fetch: mockFetch({}, 500),
     }),
-    NoticeAnalysisError,
+    { notices: [] },
   );
   assert.deepEqual(await recommendNotices(input.student, []), { notices: [] });
+});
+
+test("uses deterministic profile rules when notice clearly matches", async () => {
+  const result = await recommendNotices(input.student, [
+    {
+      ...notices[0],
+      title: "소프트웨어학과 1학년 장학금 신청 안내",
+      content: "소프트웨어학과 1학년 재학생 대상 장학금입니다.",
+      category: "장학",
+    },
+    {
+      ...notices[1],
+      title: "4학년 졸업요건 안내",
+      content: "4학년 졸업예정자 전용 안내입니다.",
+      category: "학사",
+    },
+  ]);
+
+  assert.equal(result.notices.length, 1);
+  assert.equal(result.notices[0]?.id, "1");
+  assert.equal(result.notices[0]?.relevant, true);
+  assert.equal(result.notices[0]?.category, "SCHOLARSHIP");
 });
 
 test("existing service maps the stored profile, uses public Notice data and avoids stale keyword cache", async () => {
@@ -202,6 +224,9 @@ test("existing service maps the stored profile, uses public Notice data and avoi
           };
         },
         async all() {
+          if (sql.includes("notice_favorites")) {
+            return { results: [{ notice_id: 1, created_at: "2026" }] };
+          }
           return {
             results: [
               {
@@ -242,6 +267,7 @@ test("existing service maps the stored profile, uses public Notice data and avoi
       ),
     );
     assert.equal(result.notices[0]?.category, "SCHOLARSHIP");
+    assert.equal(result.notices[0]?.isFavorite, true);
     assert.equal(
       queries.some((sql) => sql.includes("notice_relevance")),
       false,

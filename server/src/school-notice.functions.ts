@@ -7,11 +7,15 @@ import {
   SeedNoticesOutputSchema,
   SyncNoticesInputSchema,
   SyncNoticesOutputSchema,
+  FavoriteNoticesOutputSchema,
+  ToggleNoticeFavoriteInputSchema,
+  ToggleNoticeFavoriteOutputSchema,
   UserProfileOutputSchema,
   UserProfileSchema,
   SaveUserProfileOutputSchema,
   type NoticeListInput,
   type SyncNoticesInput,
+  type ToggleNoticeFavoriteInput,
   type UserProfile,
 } from "@tutorial/shared";
 import {
@@ -80,9 +84,14 @@ export class SchoolNoticeFunctions {
   @InputSchema(NoticeListInputSchema)
   @OutputSchema(NoticeListOutputSchema)
   async listNotices(
+    @Ctx() ctx: Context,
     @Input() input: NoticeListInput,
   ): Promise<z.infer<typeof NoticeListOutputSchema>> {
-    return this.schoolNoticeService.listNotices(input);
+    return this.schoolNoticeService.listNoticesForUser(
+      ctx.channel.id,
+      userIdFromContext(ctx),
+      input,
+    );
   }
 
   @Func(SCHOOL_NOTICE_FUNCTIONS.listPersonalizedNotices)
@@ -96,6 +105,37 @@ export class SchoolNoticeFunctions {
       ctx.channel.id,
       userIdFromContext(ctx),
     );
+  }
+
+  @Func(SCHOOL_NOTICE_FUNCTIONS.listFavorites)
+  @Description("List the current user's favorite notices")
+  @InputSchema(z.object({}))
+  @OutputSchema(FavoriteNoticesOutputSchema)
+  async listFavorites(
+    @Ctx() ctx: Context,
+  ): Promise<z.infer<typeof FavoriteNoticesOutputSchema>> {
+    return this.schoolNoticeService.listFavorites(
+      ctx.channel.id,
+      userIdFromContext(ctx),
+    );
+  }
+
+  @Func(SCHOOL_NOTICE_FUNCTIONS.toggleFavorite)
+  @Description("Toggle a school notice favorite for the current user")
+  @InputSchema(ToggleNoticeFavoriteInputSchema)
+  @OutputSchema(ToggleNoticeFavoriteOutputSchema)
+  async toggleFavorite(
+    @Ctx() ctx: Context,
+    @Input() input: ToggleNoticeFavoriteInput,
+  ): Promise<z.infer<typeof ToggleNoticeFavoriteOutputSchema>> {
+    return {
+      noticeId: input.noticeId,
+      isFavorite: await this.schoolNoticeService.toggleFavorite(
+        ctx.channel.id,
+        userIdFromContext(ctx),
+        input.noticeId,
+      ),
+    };
   }
 
   @Func(SCHOOL_NOTICE_FUNCTIONS.seedNotices)

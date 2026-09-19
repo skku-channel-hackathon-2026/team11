@@ -53,6 +53,14 @@ SIGNING_KEY=1111111111111111111111111111111111111111111111111111111111111111
 APP_STORE_URL=https://app-store-api.channel.io
 ```
 
+Channel Talk 고객상담 Web Plug-in을 WAM에 띄우려면 빌드 시점에 읽히는 WAM 환경 파일을 별도로 만듭니다.
+이 파일도 Git에 commit하지 마세요.
+
+```dotenv
+# wam/.env.local
+VITE_CHANNEL_TALK_PLUGIN_KEY=your-channel-talk-web-plugin-key
+```
+
 ```sh
 corepack pnpm db:migrate:local
 corepack pnpm dev:cloudflare
