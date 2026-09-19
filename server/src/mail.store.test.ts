@@ -12,7 +12,11 @@ import {
 export function createMailAccountDatabase(): AppDatabase {
   const rows: MailAccountRow[] = [];
 
-  function runAll(sql: string, channelId?: string, userId?: string): MailAccountRow[] {
+  function runAll(
+    sql: string,
+    channelId?: string,
+    userId?: string,
+  ): MailAccountRow[] {
     if (sql.includes("FROM mail_accounts") && sql.includes("ORDER BY")) {
       return rows
         .filter(
@@ -37,8 +41,23 @@ export function createMailAccountDatabase(): AppDatabase {
           return {
             async run() {
               if (sql.startsWith("INSERT INTO mail_accounts")) {
-                const [id, channelId, userId, provider, email, displayName, connectedAt] =
-                  values as [string, string, string, string, string, string | null, string];
+                const [
+                  id,
+                  channelId,
+                  userId,
+                  provider,
+                  email,
+                  displayName,
+                  connectedAt,
+                ] = values as [
+                  string,
+                  string,
+                  string,
+                  string,
+                  string,
+                  string | null,
+                  string,
+                ];
                 rows.push({
                   id,
                   channel_id: channelId,
@@ -51,7 +70,11 @@ export function createMailAccountDatabase(): AppDatabase {
                 return {};
               }
               if (sql.startsWith("DELETE FROM mail_accounts")) {
-                const [channelId, userId, id] = values as [string, string, string];
+                const [channelId, userId, id] = values as [
+                  string,
+                  string,
+                  string,
+                ];
                 const index = rows.findIndex(
                   (row) =>
                     row.channel_id === channelId &&
@@ -65,7 +88,11 @@ export function createMailAccountDatabase(): AppDatabase {
             },
             async first<T>() {
               if (sql.includes("AND email = ?")) {
-                const [channelId, userId, email] = values as [string, string, string];
+                const [channelId, userId, email] = values as [
+                  string,
+                  string,
+                  string,
+                ];
                 return (rows.find(
                   (row) =>
                     row.channel_id === channelId &&
@@ -74,7 +101,11 @@ export function createMailAccountDatabase(): AppDatabase {
                 ) ?? null) as T | null;
               }
               if (sql.includes("AND id = ?")) {
-                const [channelId, userId, id] = values as [string, string, string];
+                const [channelId, userId, id] = values as [
+                  string,
+                  string,
+                  string,
+                ];
                 return (rows.find(
                   (row) =>
                     row.channel_id === channelId &&

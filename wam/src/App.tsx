@@ -7,6 +7,7 @@ import {
 import { useWamClose } from '@channel.io/app-sdk-wam'
 
 import Home from './pages/Home'
+import { isMobile } from './utils/userAgent'
 import Send from './pages/Send'
 import Mail from './pages/Mail'
 import AgentChat from './pages/Chat'

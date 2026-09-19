@@ -23,7 +23,8 @@ export function NoticeHeader({
       </div>
       <h1>학교 공지를 한곳에서 빠르게 확인하세요.</h1>
       <p>
-        성균관대학교 소프트웨어융합대학 공지를 수집해 날짜와 분류 기준으로 정리합니다.
+        성균관대학교 소프트웨어융합대학 공지를 수집해 날짜와 분류 기준으로
+        정리합니다.
       </p>
       <button
         className="notice-hero__button"

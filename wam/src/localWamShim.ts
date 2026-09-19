@@ -50,11 +50,7 @@ function isLocalBrowser(): boolean {
   )
 }
 
-if (
-  typeof window !== 'undefined' &&
-  isLocalBrowser() &&
-  !window.ChannelIOWam
-) {
+if (typeof window !== 'undefined' && isLocalBrowser() && !window.ChannelIOWam) {
   window.ChannelIOWam = {
     getWamData(key: string): unknown {
       return localWamData[key]

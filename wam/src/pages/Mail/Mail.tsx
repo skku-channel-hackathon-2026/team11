@@ -252,10 +252,7 @@ function Mail() {
       : ''
   const bannerMessage = errorMessage || sdkError || messageWarning || statusMessage
 
-  const canConnect = useMemo(
-    () => /.+@.+\..+/.test(email.trim()),
-    [email]
-  )
+  const canConnect = useMemo(() => /.+@.+\..+/.test(email.trim()), [email])
 
   useEffect(() => {
     if (selectedMailbox === 'all') return

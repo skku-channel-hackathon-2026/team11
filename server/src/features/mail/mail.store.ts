@@ -131,6 +131,12 @@ export async function insertMailAccount(
     }
     return toMailAccount(existingRow);
   }
+  const existing = await findMailAccountByEmail(
+    channelId,
+    userId,
+    account.email,
+  );
+  if (existing) return existing;
 
   await getDatabase()
     .prepare(
