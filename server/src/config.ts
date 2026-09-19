@@ -11,6 +11,8 @@ function required(name: string): string {
 
 export const appId = required("APP_ID");
 export const appSecret = required("APP_SECRET");
+export const openAiApiKey = process.env.OPENAI_API_KEY?.trim() ?? "";
+export const openAiModel = process.env.OPENAI_MODEL?.trim() || "gpt-5";
 export const skipSignatureVerification = process.env.SKIP_SIGNATURE_VERIFICATION === "true";
 if ((process.env.VERCEL === "1" || process.env.CLOUDFLARE_WORKER === "1") && skipSignatureVerification) {
   throw new Error("Signature verification cannot be disabled in hosted runtimes");

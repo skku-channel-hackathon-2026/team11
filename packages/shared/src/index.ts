@@ -1,68 +1,12 @@
-import { z } from "zod";
+export * from "./mail.js";
+export * from "./recommendations.js";
+export * from "./school-notices.js";
+export * from "./tutorial.js";
 
-export const TUTORIAL_WAM_NAME = "tutorial";
+import { NOTICE_RECOMMENDATION_FUNCTIONS } from "./recommendations.js";
+import { SCHOOL_NOTICE_COLLECTION_FUNCTIONS } from "./school-notices.js";
 
-export const TUTORIAL_FUNCTIONS = {
-  open: "tutorial.open",
-  sendAsBot: "tutorial.sendAsBot",
-  writeAsManager: "writeGroupMessageAsManager",
+export const SCHOOL_NOTICE_FUNCTIONS = {
+  ...NOTICE_RECOMMENDATION_FUNCTIONS,
+  ...SCHOOL_NOTICE_COLLECTION_FUNCTIONS,
 } as const;
-
-export const CommandActionInputSchema = z.object({
-  chat: z.object({ type: z.string(), id: z.string() }).optional(),
-  trigger: z
-    .object({
-      type: z.string(),
-      attributes: z
-        .record(z.string())
-        .nullish()
-        .transform((attributes) => attributes ?? {}),
-    })
-    .optional(),
-  input: z
-    .record(z.unknown())
-    .nullish()
-    .transform((input) => input ?? {}),
-  language: z.string().optional(),
-});
-
-export type CommandActionInput = z.infer<typeof CommandActionInputSchema>;
-
-export const SendAsBotInputSchema = z.object({
-  targetToken: z.string().min(1),
-  rootMessageId: z.string().optional(),
-  broadcast: z.boolean().default(false),
-});
-
-export type SendAsBotInput = z.infer<typeof SendAsBotInputSchema>;
-
-export const TutorialWamArgsSchema = z.object({
-  chatId: z.string(),
-  chatType: z.string(),
-  chatTitle: z.string(),
-  rootMessageId: z.string().optional(),
-  broadcast: z.boolean(),
-  managerId: z.string(),
-  message: z.string(),
-  targetToken: z.string().optional(),
-});
-
-export type TutorialWamArgs = z.infer<typeof TutorialWamArgsSchema>;
-
-export const TutorialWamDataSchema = TutorialWamArgsSchema.extend({
-  appId: z.string(),
-  channelId: z.string(),
-});
-
-export type TutorialWamData = z.infer<typeof TutorialWamDataSchema>;
-
-export type WriteGroupMessageAsManagerInput = {
-  channelId: string;
-  groupId: string;
-  rootMessageId?: string;
-  broadcast: boolean;
-  dto: {
-    plainText: string;
-    managerId: string;
-  };
-};
